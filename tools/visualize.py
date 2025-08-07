@@ -10,7 +10,9 @@ from mmcv.parallel import MMDistributedDataParallel
 from mmcv.runner import load_checkpoint
 from torchpack import distributed as dist
 from torchpack.utils.config import configs
-from torchpack.utils.tqdm import tqdm
+# from torchpack.utils.tqdm import 
+from tqdm import tqdm
+from mmcv.runner import get_dist_info, init_dist, load_checkpoint, wrap_fp16_model
 
 from mmdet3d.core import LiDARInstance3DBoxes
 from mmdet3d.core.utils import visualize_camera, visualize_lidar, visualize_map
@@ -70,6 +72,9 @@ def main() -> None:
     # build the model and load checkpoint
     if args.mode == "pred":
         model = build_model(cfg.model)
+        fp16_cfg = cfg.get("fp16", None)
+        if fp16_cfg is not None:
+            wrap_fp16_model(model)
         load_checkpoint(model, args.checkpoint, map_location="cpu")
 
         model = MMDistributedDataParallel(
