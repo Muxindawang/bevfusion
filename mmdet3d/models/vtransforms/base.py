@@ -53,12 +53,12 @@ class BaseTransform(nn.Module):
         self.add_depth_features = add_depth_features
 
         dx, bx, nx = gen_dx_bx(self.xbound, self.ybound, self.zbound)
-        self.dx = nn.Parameter(dx, requires_grad=False)
-        self.bx = nn.Parameter(bx, requires_grad=False)
-        self.nx = nn.Parameter(nx, requires_grad=False)
+        self.dx = nn.Parameter(dx, requires_grad=False)   #每个体素在x、y、z三个方向的分辨率
+        self.bx = nn.Parameter(bx, requires_grad=False)   #每个体素在x、y、z三个方向的中心点坐标
+        self.nx = nn.Parameter(nx, requires_grad=False)   #每个体素在x、y、z三个方向的数量
 
         self.C = out_channels
-        self.frustum = self.create_frustum()
+        self.frustum = self.create_frustum()      # 构建视锥
         self.D = self.frustum.shape[0]
         self.fp16_enabled = False
 
@@ -89,7 +89,7 @@ class BaseTransform(nn.Module):
         return nn.Parameter(frustum, requires_grad=False)
 
     @force_fp32()
-    def get_geometry(
+    def get_geometry(       # 根据传感器外参、内参、图像增强矩阵等，将视锥体点从像素空间变换到激光雷达坐标系，实现多视角几何对齐
         self,
         camera2lidar_rots,
         camera2lidar_trans,
@@ -139,6 +139,7 @@ class BaseTransform(nn.Module):
 
     @force_fp32()
     def bev_pool(self, geom_feats, x):
+        # 将体素空间的特征聚合到bev网格上，形成bev表示
         B, N, D, H, W, C = x.shape
         Nprime = B * N * D * H * W
 
@@ -146,6 +147,7 @@ class BaseTransform(nn.Module):
         x = x.reshape(Nprime, C)
 
         # flatten indices
+        # 先得到网格的最小边界（左下角），然后找到geom_feats中的点在网格中的位置，再除以步长，得到网格的索引，网格的坐标
         geom_feats = ((geom_feats - (self.bx - self.dx / 2.0)) / self.dx).long()
         geom_feats = geom_feats.view(Nprime, 3)
         batch_ix = torch.cat(
@@ -194,16 +196,17 @@ class BaseTransform(nn.Module):
         rots = camera2ego[..., :3, :3]
         trans = camera2ego[..., :3, 3]
         intrins = camera_intrinsics[..., :3, :3]
-        post_rots = img_aug_matrix[..., :3, :3]
+        post_rots = img_aug_matrix[..., :3, :3]     # 图像增强（如缩放、旋转等）后的旋转矩阵
         post_trans = img_aug_matrix[..., :3, 3]
         lidar2ego_rots = lidar2ego[..., :3, :3]
         lidar2ego_trans = lidar2ego[..., :3, 3]
         camera2lidar_rots = camera2lidar[..., :3, :3]
         camera2lidar_trans = camera2lidar[..., :3, 3]
 
-        extra_rots = lidar_aug_matrix[..., :3, :3]
+        extra_rots = lidar_aug_matrix[..., :3, :3]      # 这两个变量用于将点云或特征在空间中做增强（如旋转、平移），常见于数据增强或坐标系变换，后续会在几何变换
         extra_trans = lidar_aug_matrix[..., :3, 3]
 
+        # geom是将视锥体点从像素空间变换到激光雷达坐标系的结果
         geom = self.get_geometry(
             camera2lidar_rots,
             camera2lidar_trans,
@@ -281,6 +284,7 @@ class BaseDepthTransform(BaseTransform):
 
 
         for b in range(batch_size):
+            # 点云投影到图像中
             cur_coords = points[b][:, :3]
             cur_img_aug_matrix = img_aug_matrix[b]
             cur_lidar_aug_matrix = lidar_aug_matrix[b]
@@ -316,7 +320,7 @@ class BaseDepthTransform(BaseTransform):
             for c in range(on_img.shape[0]):
                 masked_coords = cur_coords[c, on_img[c]].long()
                 masked_dist = dist[c, on_img[c]]
-
+                # 将深度值映射到图像的深度通道中，生成深度图depth
                 if self.depth_input == 'scalar':
                     depth[b, c, 0, masked_coords[:, 0], masked_coords[:, 1]] = masked_dist
                 elif self.depth_input == 'one-hot':

@@ -11,7 +11,7 @@ model:
         num_heads: [3, 6, 12, 24]
         window_size: 7
         mlp_ratio: 4
-        qkv_bias: true
+        qkv_bias: true      # 是否在QKV投影中使用偏置，这里是true
         qk_scale: null
         drop_rate: 0.
         attn_drop_rate: 0.

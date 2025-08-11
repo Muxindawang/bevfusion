@@ -1,14 +1,14 @@
 model:
   heads:
     object:
-      type: TransFusionHead
-      num_proposals: 200
+      type: TransFusionHead     # 检测头的类型
+      num_proposals: 200      # 候选框数量
       auxiliary: true
-      in_channels: null
+      in_channels: null     # 输入通道数，这里设置为null，表示自动推断。
       hidden_channel: 128
-      num_classes: 10
+      num_classes: 10     # 目标类别数量，这里是10。
       num_decoder_layers: 1
-      num_heads: 8
+      num_heads: 8      # Transformer中多头注意力机制的头数，这里是8
       nms_kernel_size: 3
       ffn_channel: 256
       dropout: 0.1
@@ -42,37 +42,37 @@ model:
             weight: 0.25
       test_cfg:
         dataset: nuScenes
-        grid_size: [1024, 1024, 1]
+        grid_size: [1024, 1024, 1]      # 网格大小，这里是[1024, 1024, 1]
         out_size_factor: 8
         voxel_size: ${voxel_size[:2]}
         pc_range: ${point_cloud_range[:2]}
         nms_type: null
-      common_heads:
+      common_heads:     # 定义了检测头的输出，包括中心点、高度、尺寸、旋转和速度。
         center: [2, 2]
         height: [1, 2]
         dim: [3, 2]
         rot: [2, 2]
         vel: [2, 2]
       bbox_coder:
-        type: TransFusionBBoxCoder
+        type: TransFusionBBoxCoder      # 边界框编码器类型，这里是TransFusionBBoxCoder。
         pc_range: ${point_cloud_range[:2]}
         post_center_range: [-61.2, -61.2, -10.0, 61.2, 61.2, 10.0]
         score_threshold: 0.0
         out_size_factor: 8
         voxel_size: ${voxel_size[:2]}
         code_size: 10
-      loss_cls: 
+      loss_cls:       # 分类损失，使用FocalLoss
         type: FocalLoss
         use_sigmoid: true
         gamma: 2.0
         alpha: 0.25
         reduction: mean
         loss_weight: 1.0
-      loss_heatmap:
+      loss_heatmap:     # 热图损失，使用GaussianFocalLoss
         type: GaussianFocalLoss
         reduction: mean
         loss_weight: 1.0
-      loss_bbox:
+      loss_bbox:      # 边界框回归损失，使用L1Loss
         type: L1Loss
         reduction: mean
         loss_weight: 0.25

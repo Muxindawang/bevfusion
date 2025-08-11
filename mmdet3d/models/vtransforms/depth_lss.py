@@ -35,7 +35,7 @@ class DepthLSSTransform(BaseDepthTransform):
             zbound=zbound,
             dbound=dbound,
         )
-        self.dtransform = nn.Sequential(
+        self.dtransform = nn.Sequential(        # 用于对输入的深度图（或深度特征）做卷积特征提取，输出 64 通道。
             nn.Conv2d(1, 8, 1),
             nn.BatchNorm2d(8),
             nn.ReLU(True),
@@ -46,7 +46,7 @@ class DepthLSSTransform(BaseDepthTransform):
             nn.BatchNorm2d(64),
             nn.ReLU(True),
         )
-        self.depthnet = nn.Sequential(
+        self.depthnet = nn.Sequential(        # 将图像特征和深度特征拼接后，进一步卷积，输出 D+C 通道（前 D 个为深度概率，后 C 个为体素特征）。
             nn.Conv2d(in_channels + 64, in_channels, 3, padding=1),
             nn.BatchNorm2d(in_channels),
             nn.ReLU(True),
@@ -80,6 +80,12 @@ class DepthLSSTransform(BaseDepthTransform):
 
     @force_fp32()
     def get_cam_feats(self, x, d):
+        # 将深度图 d 通过 self.dtransform 提取特征，得到 64 通道深度特征。
+        # 将深度特征与图像特征在通道维度拼接。
+        # 拼接后的特征送入 self.depthnet，输出 D+C 通道。
+        # 前 D 个通道做 softmax 得到深度概率分布。
+        # 用深度概率加权体素特征，得到每个像素在每个深度上的体素特征。
+        # 调整输出 shape 为 [B, N, D, fH, fW, C]。
         B, N, C, fH, fW = x.shape
 
         d = d.view(B * N, *d.shape[2:])

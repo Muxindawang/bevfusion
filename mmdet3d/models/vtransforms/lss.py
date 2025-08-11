@@ -34,7 +34,8 @@ class LSSTransform(BaseTransform):
             zbound=zbound,
             dbound=dbound,
         )
-        self.depthnet = nn.Conv2d(in_channels, self.D + self.C, 1)
+        # D是度采样空间的维度（即离散的深度层数），C是体素特征的维度
+        self.depthnet = nn.Conv2d(in_channels, self.D + self.C, 1)      # 用于预测深度分布和体素特征
         if downsample > 1:
             assert downsample == 2, downsample
             self.downsample = nn.Sequential(
@@ -64,9 +65,12 @@ class LSSTransform(BaseTransform):
 
         x = x.view(B * N, C, fH, fW)
 
-        x = self.depthnet(x)
+        x = self.depthnet(x)    
+        # 输出的维度是 (B*N, D+C, fH, fW),其中前D个通道表示每个像素在每个深度层的概率，通过softmax得到归一化的深度概率（即深度预测）
+        # 后面C个通道表示体素特征
         depth = x[:, : self.D].softmax(dim=1)
         x = depth.unsqueeze(1) * x[:, self.D : (self.D + self.C)].unsqueeze(2)
+        # 这里的x是将深度概率和体素特征结合起来，形成一个新的特征图，维度为 (B*N, C, D, fH, fW)，表示每个像素在每个深度上的体素特征
 
         x = x.view(B, N, self.C, self.D, fH, fW)
         x = x.permute(0, 1, 3, 4, 5, 2)

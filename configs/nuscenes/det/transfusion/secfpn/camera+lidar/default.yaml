@@ -1,8 +1,8 @@
 model:
-  encoders:
+  encoders:     # 编码器部分定义了相机和激光雷达的特征提取网络
     camera:
       neck:
-        type: GeneralizedLSSFPN
+        type: GeneralizedLSSFPN     # 特征金字塔网络类型，这里是GeneralizedLSSFPN
         in_channels: [512, 1024, 2048]
         out_channels: 256
         start_level: 0
@@ -17,15 +17,15 @@ model:
           mode: bilinear
           align_corners: false
       vtransform:
-        type: DepthLSSTransform
+        type: DepthLSSTransform     # 深度变换类型，这里是DepthLSSTransform
         in_channels: 256
         out_channels: 80
         image_size: ${image_size}
         feature_size: ${[image_size[0] // 8, image_size[1] // 8]}
-        xbound: [-51.2, 51.2, 0.4]
+        xbound: [-51.2, 51.2, 0.4]      # x轴方向的范围和分辨率
         ybound: [-51.2, 51.2, 0.4]
         zbound: [-10.0, 10.0, 20.0]
-        dbound: [1.0, 60.0, 0.5]
+        dbound: [1.0, 60.0, 0.5]    # 深度范围和分辨率 指从相机到目标物体的距离，通常用于深度估计和视锥体（Frustum）的构建。
         downsample: 2
     lidar:
       voxelize:

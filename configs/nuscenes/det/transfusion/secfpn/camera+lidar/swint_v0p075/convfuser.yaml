@@ -1,6 +1,6 @@
 model:
   fuser:
-    type: ConvFuser
+    type: ConvFuser     # ConvFuser是一种基于卷积操作的融合方法，通常用于将不同模态的特征图进行融合
     in_channels: [80, 256]
     out_channels: 256
 

@@ -1,7 +1,7 @@
 model:
-  decoder:
+  decoder:      # 解码器配置
     backbone:
-      type: SECOND
+      type: SECOND      # 主干网络类型，这里是SECOND
       in_channels: 256
       out_channels: [128, 256]
       layer_nums: [5, 5]
@@ -10,10 +10,10 @@ model:
         type: BN
         eps: 1.0e-3
         momentum: 0.01
-      conv_cfg:
+      conv_cfg:     # 卷积配置，使用Conv2d，不使用偏置（bias: false）
         type: Conv2d
         bias: false
-    neck:
+    neck:     # 特征金字塔网络类型，这里是SECONDFPN
       type: SECONDFPN
       in_channels: [128, 256]
       out_channels: [256, 256]
@@ -22,7 +22,7 @@ model:
         type: BN
         eps: 1.0e-3
         momentum: 0.01
-      upsample_cfg:
+      upsample_cfg:     # 上采样配置，使用反卷积（deconv），不使用偏置（bias: false）
         type: deconv
         bias: false
       use_conv_for_no_stride: true
@@ -40,8 +40,8 @@ optimizer_config:
     max_norm: 35
     norm_type: 2
 
-lr_config:
+lr_config:      # 学习率调度策略，这里是cyclic，表示使用循环学习率
   policy: cyclic
 
-momentum_config:
+momentum_config:      # 动量调度策略，这里是cyclic，表示使用循环动量
   policy: cyclic
