@@ -37,13 +37,13 @@ def clip_sigmoid(x, eps=1e-4):
 class TransFusionHead(nn.Module):
     def __init__(
         self,
-        num_proposals=128,
+        num_proposals=128,    # 每帧最多生成的候选框数量
         auxiliary=True,
         in_channels=128 * 3,
-        hidden_channel=128,
+        hidden_channel=128,   # Transformer和FFN的隐藏通道数
         num_classes=4,
         # config for Transformer
-        num_decoder_layers=3,
+        num_decoder_layers=3,   # Transformer解码器层数和多头数
         num_heads=8,
         nms_kernel_size=1,
         ffn_channel=256,
@@ -57,7 +57,7 @@ class TransFusionHead(nn.Module):
         norm_cfg=dict(type="BN1d"),
         bias="auto",
         # loss
-        loss_cls=dict(type="GaussianFocalLoss", reduction="mean"),
+        loss_cls=dict(type="GaussianFocalLoss", reduction="mean"),      # 各类损失函数配置
         loss_iou=dict(
             type="VarifocalLoss", use_sigmoid=True, iou_weighted=True, reduction="mean"
         ),
@@ -95,10 +95,11 @@ class TransFusionHead(nn.Module):
         self.sampling = False
 
         # a shared convolution
+        # 对输入的 BEV 特征做一次卷积处理，统一特征通道数，作为后续热力图和 Transformer 的输入。
         self.shared_conv = build_conv_layer(
             dict(type="Conv2d"),
             in_channels,
-            hidden_channel,
+            hidden_channel,     # 128
             kernel_size=3,
             padding=1,
             bias=bias,
@@ -126,10 +127,13 @@ class TransFusionHead(nn.Module):
                 bias=bias,
             )
         )
+        # 用于生成每个类别的中心点热力图（dense heatmap），为候选框生成提供空间分布信息。
         self.heatmap_head = nn.Sequential(*layers)
+        # 将 proposal 的类别 one-hot 编码映射为特征向量，作为 Transformer query 的类别嵌入。
         self.class_encoding = nn.Conv1d(num_classes, hidden_channel, 1)
 
         # transformer decoder layers for object query with LiDAR feature
+        # 多层 Transformer 解码器，用于融合 proposal query 与 BEV特征，实现空间和类别信息的深度交互。
         self.decoder = nn.ModuleList()
         for i in range(self.num_decoder_layers):
             self.decoder.append(
@@ -145,6 +149,7 @@ class TransFusionHead(nn.Module):
             )
 
         # Prediction Head
+        # 每层 Transformer 后的 FFN（前馈网络）预测头，输出 proposal 的中心、尺寸、旋转、类别分数等参数。
         self.prediction_heads = nn.ModuleList()
         for i in range(self.num_decoder_layers):
             heads = copy.deepcopy(common_heads)
@@ -163,6 +168,7 @@ class TransFusionHead(nn.Module):
         self._init_assigner_sampler()
 
         # Position Embedding for Cross-Attention, which is re-used during training
+        # 生成 BEV 空间的二维位置编码，为 Transformer 提供空间感知能力。
         x_size = self.test_cfg["grid_size"][0] // self.test_cfg["out_size_factor"]
         y_size = self.test_cfg["grid_size"][1] // self.test_cfg["out_size_factor"]
         self.bev_pos = self.create_2D_grid(x_size, y_size)
@@ -220,6 +226,7 @@ class TransFusionHead(nn.Module):
         Returns:
             list[dict]: Output results for tasks.
         """
+        # BEV特征处理
         batch_size = inputs.shape[0]
         lidar_feat = self.shared_conv(inputs)
 
@@ -265,13 +272,14 @@ class TransFusionHead(nn.Module):
             ] = F.max_pool2d(heatmap[:, 2], kernel_size=1, stride=1, padding=0)
         heatmap = heatmap * (heatmap == local_max)
         heatmap = heatmap.view(batch_size, heatmap.shape[1], -1)
-
+        # 候选框生成 按类别和空间位置选取 top-K proposals，提取对应的特征和类别嵌入
         # top #num_proposals among all classes
         top_proposals = heatmap.view(batch_size, -1).argsort(dim=-1, descending=True)[
             ..., : self.num_proposals
         ]
         top_proposals_class = top_proposals // heatmap.shape[-1]
         top_proposals_index = top_proposals % heatmap.shape[-1]
+        # Transformer融合
         query_feat = lidar_feat_flatten.gather(
             index=top_proposals_index[:, None, :].expand(
                 -1, lidar_feat_flatten.shape[1], -1

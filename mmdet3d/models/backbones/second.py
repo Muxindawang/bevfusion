@@ -27,8 +27,8 @@ class SECOND(BaseModule):
         self,
         in_channels=128,
         out_channels=[128, 128, 256],
-        layer_nums=[3, 5, 5],
-        layer_strides=[2, 2, 2],
+        layer_nums=[3, 5, 5],      # 每个阶段的卷积层数
+        layer_strides=[2, 2, 2],     # 每个阶段的步长
         norm_cfg=dict(type="BN", eps=1e-3, momentum=0.01),
         conv_cfg=dict(type="Conv2d", bias=False),
         init_cfg=None,
@@ -42,6 +42,9 @@ class SECOND(BaseModule):
         # note that when stride > 1, conv2d with same padding isn't
         # equal to pad-conv2d. we should use pad-conv2d.
         blocks = []
+        # 按照 layer_nums、out_channels、layer_strides 构建多个 block，每个 block 包含：
+        # 一个带步长的卷积+归一化+ReLU
+        # 多个普通卷积+归一化+ReLU
         for i, layer_num in enumerate(layer_nums):
             block = [
                 build_conv_layer(
